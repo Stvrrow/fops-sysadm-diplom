@@ -1,0 +1,129 @@
+---
+- name: Install Prometheus
+  hosts: prometheus
+  become: true
+
+  vars:
+    prometheus_version: "2.52.0"
+    web1_ip: "192.168.20.27"
+    web2_ip: "192.168.30.4"
+    prometheus_ip: "192.168.20.21"
+    grafana_ip: "192.168.10.34"
+    elasticsearch_ip: "192.168.20.15"
+    kibana_ip: "192.168.10.9"
+
+  tasks:
+    - name: Create prometheus user
+      user:
+        name: prometheus
+        shell: /sbin/nologin
+        create_home: false
+
+    - name: Create directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: prometheus
+        group: prometheus
+        mode: '0755'
+      loop:
+        - /etc/prometheus
+        - /var/lib/prometheus
+
+    - name: Download Prometheus
+      get_url:
+        url: "https://github.com/prometheus/prometheus/releases/download/v{{ prometheus_version }}/prometheus-{{ prometheus_version }}.linux-amd64.tar.gz"
+        dest: /tmp/prometheus.tar.gz
+
+    - name: Extract Prometheus
+      unarchive:
+        src: /tmp/prometheus.tar.gz
+        dest: /tmp/
+        remote_src: true
+
+    - name: Copy binaries
+      copy:
+        src: "/tmp/prometheus-{{ prometheus_version }}.linux-amd64/{{ item }}"
+        dest: "/usr/local/bin/{{ item }}"
+        mode: '0755'
+        remote_src: true
+      loop:
+        - prometheus
+        - promtool
+
+    - name: Copy console files
+      copy:
+        src: "/tmp/prometheus-{{ prometheus_version }}.linux-amd64/{{ item }}"
+        dest: "/etc/prometheus/{{ item }}"
+        remote_src: true
+      loop:
+        - consoles
+        - console_libraries
+
+    - name: Create prometheus config
+      copy:
+        dest: /etc/prometheus/prometheus.yml
+        owner: prometheus
+        group: prometheus
+        mode: '0644'
+        content: |
+          global:
+            scrape_interval: 15s
+            evaluation_interval: 15s
+
+          scrape_configs:
+            - job_name: 'prometheus'
+              static_configs:
+                - targets: ['localhost:9090']
+
+            - job_name: 'node_exporter'
+              static_configs:
+                - targets:
+                  - '{{ web1_ip }}:9100'
+                  - '{{ web2_ip }}:9100'
+                  - '{{ prometheus_ip }}:9100'
+                  - '{{ grafana_ip }}:9100'
+                  - '{{ elasticsearch_ip }}:9100'
+                  - '{{ kibana_ip }}:9100'
+
+            - job_name: 'nginx_logs'
+              static_configs:
+                - targets:
+                  - '{{ web1_ip }}:4040'
+                  - '{{ web2_ip }}:4040'
+      notify: Restart prometheus
+
+    - name: Create systemd service
+      copy:
+        dest: /etc/systemd/system/prometheus.service
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Prometheus
+          After=network.target
+
+          [Service]
+          User=prometheus
+          ExecStart=/usr/local/bin/prometheus \
+            --config.file=/etc/prometheus/prometheus.yml \
+            --storage.tsdb.path=/var/lib/prometheus \
+            --web.console.templates=/etc/prometheus/consoles \
+            --web.console.libraries=/etc/prometheus/console_libraries
+          Restart=on-failure
+
+          [Install]
+          WantedBy=multi-user.target
+      notify: Restart prometheus
+
+    - name: Enable and start prometheus
+      systemd:
+        name: prometheus
+        enabled: true
+        state: started
+        daemon_reload: true
+
+  handlers:
+    - name: Restart prometheus
+      systemd:
+        name: prometheus
+        state: restarted

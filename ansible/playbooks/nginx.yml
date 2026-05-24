@@ -1,0 +1,64 @@
+---
+- name: Install and configure nginx
+  hosts: web
+  become: true
+ 
+  tasks:
+    - name: Install nginx
+      apt:
+        name: nginx
+        state: present
+        update_cache: true
+ 
+    - name: Create site directory
+      file:
+        path: /var/www/html
+        state: directory
+        mode: '0755'
+ 
+    - name: Deploy index.html
+      copy:
+        dest: /var/www/html/index.html
+        content: |
+          <!DOCTYPE html>
+          <html>
+          <head><meta charset="utf-8"><title>Netology</title></head>
+          <body>
+            <h1>Имя машины: {{ inventory_hostname }}</h1>
+            <p>IP адрес: {{ ansible_default_ipv4.address }}</p>
+            <p>Сервер работает!</p>
+          </body>
+          </html>
+        mode: '0644'
+ 
+    - name: Configure nginx
+      copy:
+        dest: /etc/nginx/sites-available/default
+        content: |
+          server {
+              listen 80 default_server;
+              root /var/www/html;
+              index index.html;
+ 
+              access_log /var/log/nginx/access.log;
+              error_log  /var/log/nginx/error.log;
+ 
+              location / {
+                  try_files $uri $uri/ =404;
+              }
+          }
+        mode: '0644'
+      notify: Reload nginx
+ 
+    - name: Enable nginx
+      service:
+        name: nginx
+        state: started
+        enabled: true
+ 
+  handlers:
+    - name: Reload nginx
+      service:
+        name: nginx
+        state: reloaded
+ 

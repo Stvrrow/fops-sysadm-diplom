@@ -1,0 +1,87 @@
+---
+- name: Install Elasticsearch
+  hosts: elasticsearch
+  become: true
+
+  tasks:
+    - name: Wait for dpkg lock
+      shell: while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do sleep 5; done
+      changed_when: false
+
+    - name: Remove old elastic repos
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/apt/sources.list.d/elastic-8.x.list
+        - /etc/apt/sources.list.d/elastic-7.x.list
+        - /etc/apt/sources.list.d/elasticrepo.list
+
+    - name: Add elasticrepo GPG key
+      shell: wget -qO - http://elasticrepo.serveradmin.ru/elastic.asc | apt-key add -
+      changed_when: false
+
+    - name: Add elasticrepo repository
+      copy:
+        dest: /etc/apt/sources.list.d/elasticrepo.list
+        content: "deb http://elasticrepo.serveradmin.ru bookworm main\n"
+        mode: '0644'
+
+    - name: Install Elasticsearch
+      apt:
+        name: elasticsearch
+        state: present
+        update_cache: true
+
+    - name: Configure Elasticsearch
+      copy:
+        dest: /etc/elasticsearch/elasticsearch.yml
+        owner: root
+        group: elasticsearch
+        mode: '0660'
+        content: |
+          cluster.name: diploma-cluster
+          node.name: node-1
+          network.host: 0.0.0.0
+          http.port: 9200
+          discovery.type: single-node
+          xpack.security.enabled: false
+          xpack.security.transport.ssl.enabled: false
+          xpack.security.http.ssl.enabled: false
+      notify: Restart elasticsearch
+
+    - name: Set JVM heap size
+      copy:
+        dest: /etc/elasticsearch/jvm.options.d/heap.options
+        owner: root
+        group: elasticsearch
+        mode: '0660'
+        content: |
+          -Xms2g
+          -Xmx2g
+      notify: Restart elasticsearch
+
+    - name: Fix ownership of elasticsearch directories
+      file:
+        path: "{{ item }}"
+        owner: elasticsearch
+        group: elasticsearch
+        recurse: true
+        state: directory
+      loop:
+        - /usr/share/elasticsearch
+        - /var/lib/elasticsearch
+        - /var/log/elasticsearch
+
+    - name: Enable and start Elasticsearch
+      systemd:
+        name: elasticsearch
+        enabled: true
+        state: started
+        daemon_reload: true
+
+  handlers:
+    - name: Restart elasticsearch
+      systemd:
+        name: elasticsearch
+        state: restarted

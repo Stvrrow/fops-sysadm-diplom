@@ -1,0 +1,82 @@
+---
+- name: Install Grafana
+  hosts: grafana
+  become: true
+
+  vars:
+    prometheus_ip: "192.168.20.21"
+
+  tasks:
+    - name: Wait for dpkg lock
+      shell: while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do sleep 5; done
+      changed_when: false
+
+    - name: Install dependencies
+      apt:
+        name: [apt-transport-https, software-properties-common, wget, gnupg2]
+        state: present
+        update_cache: true
+
+    - name: Add Grafana GPG key (Yandex mirror)
+      shell: |
+        wget -qO /tmp/grafana.key https://mirror.yandex.ru/mirrors/grafana/apt/gpg.key
+        cat /tmp/grafana.key | gpg --dearmor -o /usr/share/keyrings/grafana.gpg
+      args:
+        creates: /usr/share/keyrings/grafana.gpg
+
+    - name: Add Grafana repo (Yandex mirror)
+      copy:
+        dest: /etc/apt/sources.list.d/grafana.list
+        content: "deb [signed-by=/usr/share/keyrings/grafana.gpg] https://mirror.yandex.ru/mirrors/grafana/apt stable main\n"
+        mode: '0644'
+
+    - name: Install Grafana
+      apt:
+        name: grafana
+        state: present
+        update_cache: true
+
+    - name: Configure Grafana
+      copy:
+        dest: /etc/grafana/grafana.ini
+        mode: '0640'
+        content: |
+          [server]
+          http_port = 3000
+
+          [security]
+          admin_user = admin
+          admin_password = admin
+
+          [auth.anonymous]
+          enabled = false
+      notify: Restart grafana
+
+    - name: Provision Prometheus datasource
+      copy:
+        dest: /etc/grafana/provisioning/datasources/prometheus.yml
+        owner: grafana
+        group: grafana
+        mode: '0640'
+        content: |
+          apiVersion: 1
+          datasources:
+            - name: Prometheus
+              type: prometheus
+              access: proxy
+              url: http://{{ prometheus_ip }}:9090
+              isDefault: true
+      notify: Restart grafana
+
+    - name: Enable and start Grafana
+      systemd:
+        name: grafana-server
+        enabled: true
+        state: started
+        daemon_reload: true
+
+  handlers:
+    - name: Restart grafana
+      systemd:
+        name: grafana-server
+        state: restarted

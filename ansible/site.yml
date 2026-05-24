@@ -1,0 +1,9 @@
+---
+- import_playbook: playbooks/nginx.yml
+- import_playbook: playbooks/node_exporter.yml
+- import_playbook: playbooks/nginx_log_exporter.yml
+- import_playbook: playbooks/prometheus.yml
+- import_playbook: playbooks/grafana.yml
+- import_playbook: playbooks/elk.yml
+- import_playbook: playbooks/kibana.yml
+- import_playbook: playbooks/filebeat.yml

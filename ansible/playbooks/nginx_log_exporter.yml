@@ -1,0 +1,84 @@
+---
+- name: Install Nginx Log Exporter
+  hosts: web
+  become: true
+
+  vars:
+    nginx_exporter_version: "1.9.2"
+
+  tasks:
+    - name: Download nginx-log-exporter deb package
+      get_url:
+        url: "https://github.com/martin-helmich/prometheus-nginxlog-exporter/releases/download/v{{ nginx_exporter_version }}/prometheus-nginxlog-exporter_{{ nginx_exporter_version }}_linux_amd64.deb"
+        dest: /tmp/nginx_log_exporter.deb
+
+    - name: Install nginx-log-exporter
+      apt:
+        deb: /tmp/nginx_log_exporter.deb
+        state: present
+
+    - name: Set nginx log file permissions
+      file:
+        path: /var/log/nginx/access.log
+        mode: '0644'
+
+    - name: Set nginx log directory permissions
+      file:
+        path: /var/log/nginx
+        mode: '0755'
+
+    - name: Configure logrotate for nginx
+      copy:
+        dest: /etc/logrotate.d/nginx
+        mode: '0644'
+        content: |
+          /var/log/nginx/*.log {
+              daily
+              missingok
+              rotate 14
+              compress
+              delaycompress
+              notifempty
+              create 0644 www-data adm
+              sharedscripts
+              prerotate
+                  if [ -d /etc/logrotate.d/httpd-prerotate ]; then \
+                      run-parts /etc/logrotate.d/httpd-prerotate; \
+                  fi \
+              endscript
+              postrotate
+                  invoke-rc.d nginx rotate >/dev/null 2>&1
+              endscript
+          }
+
+    - name: Create nginx-log-exporter config
+      copy:
+        dest: /etc/prometheus-nginxlog-exporter.hcl
+        mode: '0644'
+        content: |
+          listen {
+            port = 4040
+          }
+
+          namespace "nginx" {
+            source = {
+              files = ["/var/log/nginx/access.log"]
+            }
+            format = "$remote_addr - $remote_user [$time_local] \"$request\" $status $body_bytes_sent"
+            labels {
+              app  = "nginx"
+              host = "{{ inventory_hostname }}"
+            }
+          }
+
+    - name: Reset failed state of service
+      shell: systemctl reset-failed prometheus-nginxlog-exporter
+      changed_when: false
+      ignore_errors: true
+
+    - name: Enable and start nginx-log-exporter
+      systemd:
+        name: prometheus-nginxlog-exporter
+        enabled: true
+        state: restarted
+        daemon_reload: true

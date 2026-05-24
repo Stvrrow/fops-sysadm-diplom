@@ -1,0 +1,60 @@
+---
+- name: Install Kibana
+  hosts: kibana
+  become: true
+
+  vars:
+    elasticsearch_ip: "192.168.20.15"
+
+  tasks:
+    - name: Wait for dpkg lock
+      shell: while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do sleep 5; done
+      changed_when: false
+
+    - name: Remove old elastic repos
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/apt/sources.list.d/elastic-8.x.list
+        - /etc/apt/sources.list.d/elastic-7.x.list
+        - /etc/apt/sources.list.d/elasticrepo.list
+
+    - name: Add elasticrepo GPG key
+      shell: wget -qO - http://elasticrepo.serveradmin.ru/elastic.asc | apt-key add -
+      changed_when: false
+
+    - name: Add elasticrepo repository
+      copy:
+        dest: /etc/apt/sources.list.d/elasticrepo.list
+        content: "deb http://elasticrepo.serveradmin.ru bookworm main\n"
+        mode: '0644'
+
+    - name: Install Kibana
+      apt:
+        name: kibana
+        state: present
+        update_cache: true
+
+    - name: Configure Kibana
+      copy:
+        dest: /etc/kibana/kibana.yml
+        mode: '0660'
+        content: |
+          server.port: 5601
+          server.host: "0.0.0.0"
+          elasticsearch.hosts: ["http://{{ elasticsearch_ip }}:9200"]
+      notify: Restart kibana
+
+    - name: Enable and start Kibana
+      systemd:
+        name: kibana
+        enabled: true
+        state: started
+        daemon_reload: true
+
+  handlers:
+    - name: Restart kibana
+      systemd:
+        name: kibana
+        state: restarted
