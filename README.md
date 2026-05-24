@@ -151,9 +151,9 @@ curl -v http://158.160.166.213
 ```
 Проверка через браузер:
 
-![web1](https://github.com/Stvrrow/fops-sysadm-curs/blob/main/img/img1.png)
+![web1](https://github.com/Stvrrow/fops-sysadm-diplom/blob/main/img/img1.png)
 
-![web2](https://github.com/Stvrrow/fops-sysadm-curs/blob/main/img/img2.png)
+![web2](https://github.com/Stvrrow/fops-sysadm-diplom/blob/main/img/img2.png)
 
 ---
 
@@ -167,7 +167,7 @@ curl -v http://158.160.166.213
 
 Все targets в статусе UP:
 
-![prometheus](https://github.com/Stvrrow/fops-sysadm-curs/blob/main/img/img3.png)
+![prometheus](https://github.com/Stvrrow/fops-sysadm-diplom/blob/main/img/img3.png)
 
 ### Grafana
 
@@ -178,7 +178,7 @@ curl -v http://158.160.166.213
 
 Настроен дашборд **Node Exporter Full** (ID: 1860) с метриками CPU, RAM, диск, сеть, HTTP.
 
-![grafana](https://github.com/Stvrrow/fops-sysadm-curs/blob/main/img/img4.png)
+![grafana](https://github.com/Stvrrow/fops-sysadm-diplom/blob/main/img/img4.png)
 
 ---
 
@@ -193,7 +193,7 @@ curl -v http://158.160.166.213
 curl http://192.168.20.15:9200
 ```
 
-![elastic](https://github.com/Stvrrow/fops-sysadm-curs/blob/main/img/img5.png)
+![elastic](https://github.com/Stvrrow/fops-sysadm-diplom/blob/main/img/img5.png)
 
 ### Filebeat
 
@@ -209,7 +209,7 @@ curl http://192.168.20.15:9200
 
 Настроен Data View `nginx-logs-*` для просмотра логов nginx.
 
-![kibana](https://github.com/Stvrrow/fops-sysadm-curs/blob/main/img/img6.png)
+![kibana](https://github.com/Stvrrow/fops-sysadm-diplom/blob/main/img/img6.png)
 
 ---
 
@@ -238,7 +238,7 @@ curl http://192.168.20.15:9200
 | sg-kibana | HTTP (5601) из интернета |
 | sg-alb | HTTP (80) из интернета + healthcheck (198.18.235.0/24, 198.18.248.0/24) |
 
-![groups](https://github.com/Stvrrow/fops-sysadm-curs/blob/main/img/img7.png)
+![groups](https://github.com/Stvrrow/fops-sysadm-diplom/blob/main/img/img7.png)
 
 ### Bastion Host
 
@@ -262,4 +262,4 @@ yc compute snapshot-schedule list
 yc compute snapshot list
 ```
 
-![snapshots](https://github.com/Stvrrow/fops-sysadm-curs/blob/main/img/img8.png)
+![snapshots](https://github.com/Stvrrow/fops-sysadm-diplom/blob/main/img/img8.png)
